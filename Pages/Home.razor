@@ -1,0 +1,103 @@
+﻿@page "/"
+@using ConsumerDbzPlanet.Models  
+@using System.Text.Json          
+@inject HttpClient Http
+
+<h1>Planetas de Dragon Ball</h1>
+<p>Digite o ID de um planeta e pressione Enter para buscar suas informações.</p>
+
+<div class="input-group mb-3" style="max-width: 400px;">
+    <input type="number" 
+           class="form-control" 
+           placeholder="Digite o ID" 
+           @bind="planetIdInput"
+           @onkeyup="HandleKeyUp" />
+    <button class="btn btn-primary" @onclick="BuscarPlaneta">Buscar</button>
+</div>
+
+@if (isLoading)
+{
+    <div class="alert alert-info">Buscando informações...</div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else if (planetaAtual != null)
+{
+    <div class="card" style="max-width: 600px;">
+        <div class="card-body">
+            <h3 class="card-title">@planetaAtual.Name</h3>
+            
+            @if (!string.IsNullOrEmpty(planetaAtual.Image))
+            {
+                <img src="@planetaAtual.Image" alt="Imagem do planeta @planetaAtual.Name" class="img-fluid rounded mb-3" />
+            }
+            
+            <p><strong>Status:</strong> @planetaAtual.Status</p>
+            <p><strong>Descrição:</strong> @planetaAtual.Description</p>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string planetIdInput = "1"; 
+    private Planeta? planetaAtual;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await BuscarPlaneta();
+        }
+    }
+
+    private async Task BuscarPlaneta()
+    {
+        isLoading = true;
+        planetaAtual = null;
+        errorMessage = null;
+
+        if (!int.TryParse(planetIdInput, out int id) || id <= 0)
+        {
+            errorMessage = "Planeta não encontrado ou ID Inválido, coloque de 1 a 16.";
+            isLoading = false;
+            return;
+        }
+
+        var requestUrl = $"https://dragonball-api.com/api/planets/{id}";
+
+        try
+        {
+            var response = await Http.GetAsync(requestUrl); 
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = "Planeta não encontrado ou ID Inválido.";
+            }
+            else
+            {
+                planetaAtual = await response.Content.ReadFromJsonAsync<Planeta>();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Erro de conexão. Não foi possível acessar a API.";
+        }
+        catch (JsonException)
+        {
+            errorMessage = "Erro ao processar a resposta da API.";
+        }
+        catch (Exception)
+        {
+            errorMessage = "Ocorreu um erro inesperado.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
